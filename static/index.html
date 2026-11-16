@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shufersal Weekly Planner</title>
+<style>
+  :root { --ink:#1d2530; --muted:#6b7684; --line:#e3e7ec; --bg:#f6f7f9; --card:#fff;
+          --brand:#d7262e; --ok:#1f8a4c; --warn:#c0571b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:var(--card); border-bottom:1px solid var(--line); padding:18px 28px; display:flex; align-items:baseline; gap:12px; }
+  header h1 { margin:0; font-size:20px; } header span { color:var(--muted); font-size:13px; }
+  main { display:grid; grid-template-columns:380px 1fr; gap:24px; padding:24px 28px; max-width:1400px; margin:0 auto; }
+  @media (max-width:900px){ main { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  form .card + .card { margin-top:14px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 12px; }
+  label { display:block; font-size:13px; font-weight:600; margin:10px 0 4px; }
+  label.inline { display:flex; align-items:center; gap:8px; font-weight:500; margin:6px 0; }
+  input[type=text],input[type=number],input[type=password],select,textarea {
+    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
+  textarea { min-height:58px; resize:vertical; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; } .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .hint { font-size:12px; color:var(--muted); margin-top:3px; }
+  .meals { display:flex; gap:14px; flex-wrap:wrap; }
+  button.go { width:100%; margin-top:16px; padding:12px; border:0; border-radius:10px; background:var(--brand); color:#fff; font-size:16px; font-weight:700; cursor:pointer; }
+  button.go:disabled { opacity:.6; cursor:wait; }
+  details summary { cursor:pointer; font-size:13px; color:var(--muted); }
+  #out .empty { color:var(--muted); text-align:center; padding:80px 20px; }
+  .stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .stat { flex:1; min-width:140px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  .stat b { display:block; font-size:22px; } .stat small { color:var(--muted); }
+  .ok b { color:var(--ok); } .over b { color:var(--warn); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { padding:7px 8px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  th { font-size:12px; color:var(--muted); font-weight:600; }
+  td.he { direction:rtl; text-align:right; } td.num { text-align:right; white-space:nowrap; }
+  .deal { display:inline-block; background:#fdecec; color:var(--brand); border-radius:6px; padding:1px 6px; font-size:12px; direction:rtl; }
+  tr.done td { text-decoration:line-through; color:var(--muted); }
+  .days { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+  .day h3 { margin:0 0 8px; font-size:15px; } .meal { margin-bottom:10px; }
+  .meal .t { font-size:11px; text-transform:uppercase; color:var(--muted); letter-spacing:.05em; }
+  .meal .n { font-weight:600; } .meal .r { font-size:13px; color:#3d4855; white-space:pre-wrap; }
+  .section { margin-top:20px; } .tools { display:flex; gap:8px; margin:0 0 10px; }
+  .tools button { border:1px solid var(--line); background:#fff; border-radius:8px; padding:6px 10px; cursor:pointer; font:inherit; font-size:13px; }
+  .err { background:#fff3ef; border:1px solid #f3c5b5; color:#8a3315; padding:12px 14px; border-radius:10px; }
+  .spinner { display:inline-block; width:16px; height:16px; border:2px solid #fff; border-right-color:transparent; border-radius:50%; animation:s 1s linear infinite; vertical-align:-3px; margin-right:8px; }
+  @keyframes s { to { transform:rotate(360deg); } }
+  @media print { header, form, .tools { display:none; } main { display:block; padding:0; } }
+</style>
+</head>
+<body>
+<header><h1>🛒 Shufersal Weekly Planner</h1><span id="ver">v1.0</span></header>
+<main>
+<form id="f">
+  <div class="card">
+    <h2>Shop</h2>
+    <label for="storeQ">Branch</label>
+    <input type="text" id="storeQ" placeholder="Filter branches… (e.g. ירושלים)">
+    <select id="store" size="1"><option value="2">שלי ירושלים- אגרון (2)</option></select>
+    <div class="hint" id="storeHint">Loading branch list…</div>
+    <label class="inline"><input type="checkbox" id="include_club"> Include club-only deals</label>
+  </div>
+
+  <div class="card">
+    <h2>Family & budget</h2>
+    <div class="row3">
+      <div><label for="adults">Adults</label><input type="number" id="adults" min="1" value="2"></div>
+      <div><label for="kids">Children</label><input type="number" id="kids" min="0" value="2"></div>
+      <div><label for="days">Days</label><input type="number" id="days" min="1" max="14" value="7"></div>
+    </div>
+    <label for="kid_ages">Children's ages</label>
+    <input type="text" id="kid_ages" placeholder="e.g. 4, 1">
+    <label for="budget">Budget (₪)</label>
+    <input type="number" id="budget" min="50" step="10" value="700">
+    <label>Meals to cover</label>
+    <div class="meals">
+      <label class="inline"><input type="checkbox" name="meal" value="breakfast" checked> Breakfast</label>
+      <label class="inline"><input type="checkbox" name="meal" value="lunch" checked> Lunch</label>
+      <label class="inline"><input type="checkbox" name="meal" value="dinner" checked> Dinner</label>
+      <label class="inline"><input type="checkbox" name="meal" value="snacks"> Snacks</label>
+      <label class="inline"><input type="checkbox" name="meal" value="Shabbat meals (Friday night dinner + Saturday lunch)"> Shabbat</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Food rules</h2>
+    <label for="diet">Diet</label>
+    <select id="diet">
+      <option value="">No restrictions</option>
+      <option value="Kosher: no pork or shellfish, never mix meat and dairy in the same meal" selected>Kosher-style (no meat + dairy together)</option>
+      <option value="Vegetarian (eggs and dairy OK)">Vegetarian</option>
+      <option value="Vegan">Vegan</option>
+      <option value="Pescatarian">Pescatarian</option>
+    </select>
+    <label for="avoid">Avoid / dislikes</label>
+    <input type="text" id="avoid" placeholder="e.g. mushrooms, very spicy food">
+    <label for="must">Must include</label>
+    <input type="text" id="must" placeholder="e.g. fruit for the kids every day, coffee">
+  </div>
+
+  <div class="card">
+    <h2>Pantry</h2>
+    <label class="inline"><input type="checkbox" id="basic_pantry" checked> We have the basics (oil, salt, spices, sugar, flour)</label>
+    <label for="pantry_have">Already at home — don't buy</label>
+    <textarea id="pantry_have" placeholder="e.g. 1 kg rice, pasta, tahini, half a bag of lentils"></textarea>
+    <label for="notes">Anything else</label>
+    <textarea id="notes" placeholder="e.g. quick dinners on weekdays, batch-cook on Sunday"></textarea>
+  </div>
+
+  <div class="card">
+    <details id="adv">
+      <summary>Settings</summary>
+      <label for="language">Plan language</label>
+      <select id="language"><option>English</option><option>Hebrew</option></select>
+      <label for="model">Claude model</label>
+      <input type="text" id="model" placeholder="claude-sonnet-5-5">
+      <label for="api_key">Anthropic API key</label>
+      <input type="password" id="api_key" placeholder="Leave blank to use .env">
+      <div class="hint" id="keyHint"></div>
+      <label class="inline"><input type="checkbox" id="refresh"> Re-download prices now (ignore 6-hour cache)</label>
+    </details>
+    <button class="go" id="go" type="submit">Plan my week</button>
+  </div>
+</form>
+
+<section id="out"><div class="card empty">Fill in the boxes and press <b>Plan my week</b>.<br>
+It pulls today's prices and deals for your branch, then builds the meal plan and a priced list.</div></section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const FIELDS = ["adults","kids","days","kid_ages","budget","diet","avoid","must","pantry_have","notes","language","model","include_club","basic_pantry","store"];
+let STORES = [];
+
+function save() {
+  const s = {}; FIELDS.forEach(k => s[k] = $(k).type === "checkbox" ? $(k).checked : $(k).value);
+  s.meals = [...document.querySelectorAll("input[name=meal]:checked")].map(x => x.value);
+  try { localStorage.setItem("planner", JSON.stringify(s)); } catch(e) {}
+}
+function restore() {
+  let s; try { s = JSON.parse(localStorage.getItem("planner") || "null"); } catch(e) {}
+  if (!s) return;
+  FIELDS.forEach(k => { if (k in s && k !== "store") { $(k).type === "checkbox" ? $(k).checked = s[k] : $(k).value = s[k]; } });
+  if (s.meals) document.querySelectorAll("input[name=meal]").forEach(x => x.checked = s.meals.includes(x.value));
+  return s;
+}
+
+function fillStores(q, selected) {
+  const sel = $("store"), cur = selected ?? sel.value;
+  const list = STORES.filter(s => !q || (s.name + " " + s.address + " " + s.id).includes(q));
+  sel.innerHTML = list.map(s => `<option value="${s.id}">${s.name} (${s.id})</option>`).join("");
+  if (list.some(s => String(s.id) === String(cur))) sel.value = cur;
+}
+
+async function init() {
+  const saved = restore();
+  fetch("/api/status").then(r => r.json()).then(s => {
+    $("ver").textContent = "v" + s.version;
+    $("keyHint").textContent = s.has_key ? "Key found in .env / environment ✓" : "No key in .env — paste one here.";
+    if (!s.has_key) $("adv").open = true;
+  });
+  try {
+    const r = await (await fetch("/api/stores")).json();
+    if (r.error) throw new Error(r.error);
+    STORES = r.stores; fillStores("", saved?.store || "2");
+    $("storeHint").textContent = `${STORES.length} branches`;
+  } catch (e) { $("storeHint").textContent = "Couldn't load branch list — using Agron, Jerusalem. " + e.message; }
+}
+$("storeQ").addEventListener("input", e => fillStores(e.target.value.trim()));
+
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ils = n => "₪" + Number(n).toFixed(2);
+
+function render(r) {
+  const sh = r.shopping, left = r.budget - sh.total;
+  const lines = sh.lines.map((l, i) => `<tr data-i="${i}">
+      <td><input type="checkbox" class="tick"></td>
+      <td class="he">${esc(l.name)}${l.deal ? `<br><span class="deal">${esc(l.deal)}</span>` : ""}</td>
+      <td class="num">${l.qty}${l.unit ? " kg" : ""}</td>
+      <td class="num">${ils(l.unit_price)}${l.unit ? "/kg" : ""}</td>
+      <td class="num"><b>${ils(l.cost)}</b></td>
+      <td>${esc(l.for)}</td></tr>`).join("");
+  const days = (r.meal_plan || []).map(d => `<div class="card day"><h3>${esc(d.day)}</h3>${
+      (d.meals || []).map(m => `<div class="meal"><div class="t">${esc(m.meal)}</div><div class="n">${esc(m.name)}</div><div class="r">${esc(m.recipe)}</div></div>`).join("")}</div>`).join("");
+  $("out").innerHTML = `
+    <div class="stats">
+      <div class="stat ${r.within_budget ? "ok" : "over"}"><small>Total</small><b>${ils(sh.total)}</b><small>of ${ils(r.budget)} budget</small></div>
+      <div class="stat"><small>${left >= 0 ? "Left over" : "Over by"}</small><b>${ils(Math.abs(left))}</b></div>
+      <div class="stat ok"><small>Saved with deals</small><b>${ils(sh.saved)}</b></div>
+      <div class="stat"><small>Items</small><b>${sh.lines.length}</b><small>${r.deals_considered} deals live</small></div>
+    </div>
+    ${r.within_budget ? "" : `<div class="err">Claude couldn't get under budget after 3 tries — trim the list or raise the budget.</div>`}
+    <div class="card"><p style="margin:0">${esc(r.summary)}</p></div>
+    <div class="section card">
+      <div class="tools"><h2 style="margin:0;flex:1">Shopping list</h2>
+        <button onclick="copyList()">Copy list</button><button onclick="window.print()">Print</button></div>
+      <table><thead><tr><th></th><th style="text-align:right">Product</th><th>Qty</th><th>Price</th><th>Cost</th><th>For</th></tr></thead><tbody>${lines}</tbody></table>
+      ${sh.unknown_codes.length ? `<p class="hint">Dropped ${sh.unknown_codes.length} unknown product code(s).</p>` : ""}
+    </div>
+    <div class="section"><h2>Meal plan</h2><div class="days">${days}</div></div>
+    ${(r.prep_tips||[]).length ? `<div class="section card"><h2>Prep tips</h2><ul>${r.prep_tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>` : ""}
+    ${(r.pantry_used||[]).length ? `<div class="section card"><h2>From your pantry</h2><p>${r.pantry_used.map(esc).join(" · ")}</p></div>` : ""}`;
+  window._last = r;
+  document.querySelectorAll(".tick").forEach(t => t.addEventListener("change", e => e.target.closest("tr").classList.toggle("done", e.target.checked)));
+}
+
+function copyList() {
+  const r = window._last; if (!r) return;
+  const txt = r.shopping.lines.map(l => `☐ ${l.name} × ${l.qty}${l.unit ? " kg" : ""} — ${ils(l.cost)}${l.deal ? "  [" + l.deal + "]" : ""}`).join("\n")
+    + `\n\nTotal: ${ils(r.shopping.total)} (saved ${ils(r.shopping.saved)})`;
+  navigator.clipboard.writeText(txt);
+}
+
+$("f").addEventListener("submit", async e => {
+  e.preventDefault(); save();
+  const p = {}; FIELDS.forEach(k => p[k] = $(k).type === "checkbox" ? $(k).checked : $(k).value);
+  p.meals = [...document.querySelectorAll("input[name=meal]:checked")].map(x => x.value);
+  p.api_key = $("api_key").value; p.refresh = $("refresh").checked;
+  ["adults","kids","days","budget","store"].forEach(k => p[k] = Number(p[k]));
+  const b = $("go"); b.disabled = true; b.innerHTML = '<span class="spinner"></span>Fetching deals & planning… (~1 min)';
+  try {
+    const r = await (await fetch("/api/plan", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(p)})).json();
+    if (r.error) throw new Error(r.error);
+    render(r);
+  } catch (err) { $("out").innerHTML = `<div class="err">${esc(err.message)}</div>`; }
+  finally { b.disabled = false; b.textContent = "Plan my week"; }
+});
+init();
+</script>
+</body>
+</html>
