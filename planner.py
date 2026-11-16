@@ -185,15 +185,24 @@ def call_claude_cli(prompt: str, model: str = "") -> str:
         cmd += ["--model", model]
     r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, env=env, timeout=900,
                        cwd=os.path.dirname(os.path.abspath(__file__)))
-    if r.returncode != 0:
-        raise RuntimeError(f"Claude Code failed: {(r.stderr or r.stdout).strip()[:500]}")
     out = r.stdout.strip()
     try:
         data = json.loads(out)
     except json.JSONDecodeError:
+        data = None
+    if data is None:
+        if r.returncode != 0:
+            raise RuntimeError(f"Claude Code failed: {(r.stderr or out).strip()[:800]}")
         return out
-    if data.get("is_error"):
-        raise RuntimeError(f"Claude Code error: {str(data.get('result'))[:500]}")
+    if r.returncode != 0 or data.get("is_error"):
+        reason = data.get("result") or data.get("error") or data.get("subtype") or r.stderr.strip()
+        hint = ""
+        low = str(reason).lower()
+        if "login" in low or "api key" in low or "auth" in low:
+            hint = " — open Terminal, run `claude`, and type /login to sign in with your Claude account."
+        elif "limit" in low:
+            hint = " — you've hit your plan's usage limit; try again after it resets."
+        raise RuntimeError(f"Claude Code error: {str(reason)[:800]}{hint}")
     return data.get("result", "")
 
 
