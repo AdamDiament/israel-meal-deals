@@ -82,6 +82,7 @@
       <label class="inline"><input type="checkbox" name="meal" value="snacks"> Snacks</label>
       <label class="inline"><input type="checkbox" name="meal" value="Shabbat meals (Friday night dinner + Saturday lunch)"> Shabbat</label>
     </div>
+    <label class="inline"><input type="checkbox" id="double_dinners" checked> Each dinner lasts two nights (cook double, eat leftovers)</label>
   </div>
 
   <div class="card">
@@ -143,7 +144,7 @@ It pulls today's prices and deals for your branch, then builds the meal plan and
 
 <script>
 const $ = id => document.getElementById(id);
-const FIELDS = ["adults","kids","days","kid_ages","budget","diet","avoid","must","pantry_have","notes","language","model","include_club","basic_pantry","store","backend","cli_model"];
+const FIELDS = ["adults","kids","days","kid_ages","budget","diet","avoid","must","pantry_have","notes","language","model","include_club","basic_pantry","store","backend","cli_model","double_dinners"];
 let STORES = [];
 
 function save() {

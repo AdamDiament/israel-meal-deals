@@ -43,6 +43,13 @@ STAPLES = [
     "פפריקה", "כמון", "אבקת מרק", "דבש", "ריבה", "חמאת בוטנים", "שוקולד ממרח",
 ]
 
+DOUBLE_DINNER = (
+    "cook each dinner in a double batch that lasts TWO nights. Night 1 is the cooked meal; night 2 is "
+    "'Leftovers: <dish>' (optionally with a quick fresh side). So 7 days = 4 cooked dinners, the last one "
+    "covering one night or reaching into next week. Size the dinner quantities for two nights and write the "
+    "recipe quantities for the full double batch. Pick dishes that keep and reheat well."
+)
+
 UNITS_STYLE = (
     "Recipe units: whole counts for produce (e.g. '1 medium zucchini', optionally with grams), "
     "grams for dry ingredients, tablespoons/teaspoons for small amounts and oil, round numbers "
@@ -101,6 +108,7 @@ DISLIKES / AVOID: {params.get('avoid') or 'none'}
 MUST INCLUDE: {params.get('must') or 'nothing specific'}
 ALREADY AT HOME (do NOT buy these, but you may cook with them): {pantry_have}
 ASSUME BASIC PANTRY (salt, pepper, common spices, oil, sugar, flour) AT HOME: {'yes' if params.get('basic_pantry', True) else 'no — buy anything needed'}
+DINNER STRATEGY: {DOUBLE_DINNER if params.get('double_dinners', True) else 'cook a fresh dinner each night'}
 EXTRA NOTES: {params.get('notes') or 'none'}
 
 PRODUCT CATALOGUE (code|name|shelf price|optional deal). Weighted items are priced per kg.
