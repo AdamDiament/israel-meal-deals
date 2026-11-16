@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import threading
+import time
 import traceback
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,9 +14,42 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import planner
 import shufersal
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 PORT = int(os.environ.get("PORT", "8765"))
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+# ---------------------------------------------------------------- hot reload
+
+def _mtimes(exts):
+    out = {}
+    for root, dirs, files in os.walk(HERE):
+        dirs[:] = [d for d in dirs if d not in ("cache", ".git", "__pycache__", "tests")]
+        for f in files:
+            if f.endswith(exts):
+                p = os.path.join(root, f)
+                try:
+                    out[p] = os.path.getmtime(p)
+                except OSError:
+                    pass
+    return out
+
+
+def asset_rev() -> str:
+    """Changes whenever any served file changes; the page polls it to auto-refresh."""
+    return str(int(max(_mtimes((".py", ".html", ".css", ".js")).values(), default=0) * 1000))
+
+
+def watch_and_restart(interval=1.0):
+    """Restart this process in place when a .py file changes (HTML is read fresh per request)."""
+    before = _mtimes((".py",))
+    while True:
+        time.sleep(interval)
+        now = _mtimes((".py",))
+        if now != before:
+            print("↻ code changed — restarting…", flush=True)
+            args = [a for a in sys.argv if a != "--no-browser"] + ["--no-browser"]
+            os.execv(sys.executable, [sys.executable] + args)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -39,6 +73,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"stores": shufersal.load_stores()})
             except Exception as e:
                 return self._send(502, {"error": f"Couldn't load the branch list: {e}"})
+        if self.path == "/api/rev":
+            return self._send(200, {"rev": asset_rev()})
         if self.path == "/api/status":
             return self._send(200, {"version": VERSION, "has_key": bool(planner.get_api_key({})),
                                     "cli": planner.find_cli(),
@@ -69,6 +105,9 @@ def main():
     print(f"Shufersal Weekly Planner v{VERSION} → {url}  (Ctrl+C to stop)")
     if "--no-browser" not in sys.argv:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    if "--no-reload" not in sys.argv:
+        threading.Thread(target=watch_and_restart, daemon=True).start()
+        print("Hot reload on: edits to .py restart the server, the page refreshes itself.")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

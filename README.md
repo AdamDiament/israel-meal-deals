@@ -5,7 +5,7 @@ Tell it your family size, weekly budget and food rules. It pulls **today's real 
 ## Run it
 
 ```bash
-python3 app.py              # opens http://localhost:8765
+python3 app.py              # opens http://localhost:8765 (hot reload on)
 ```
 
 Or double-click `run.command` in Finder. You need Python 3.9 or newer; there are no packages to install.

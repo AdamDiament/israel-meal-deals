@@ -246,6 +246,21 @@ $("f").addEventListener("submit", async e => {
   finally { b.disabled = false; b.textContent = "Plan my week"; }
 });
 init();
+
+// Hot reload: poll for file changes. Refresh straight away unless a plan is on screen.
+let REV = null;
+setInterval(async () => {
+  try {
+    const { rev } = await (await fetch("/api/rev", { cache: "no-store" })).json();
+    if (REV && rev !== REV) {
+      if (window._last) {
+        if (!$("updBanner")) document.body.insertAdjacentHTML("afterbegin",
+          '<div id="updBanner" style="position:fixed;bottom:16px;right:16px;z-index:9;background:#1d2530;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer" onclick="location.reload()">App updated — click to reload</div>');
+      } else { location.reload(); }
+    }
+    REV = rev;
+  } catch (e) { /* server restarting */ }
+}, 1500);
 </script>
 </body>
 </html>
