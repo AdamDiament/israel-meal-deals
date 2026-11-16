@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
+import subprocess
 import urllib.error
 import urllib.request
 
@@ -114,6 +116,7 @@ HOW TO PLAN
 - {UNITS_STYLE}
 - Write meal names, recipes and notes in {lang}. Keep product names exactly as given (Hebrew).
 {feedback}
+Do not use any tools or read any files; everything you need is above.
 Respond with ONLY a JSON object, no markdown fences:
 {{
   "summary": "1–2 sentences on the week's approach",
@@ -142,6 +145,67 @@ def call_claude(prompt: str, api_key: str, model: str = DEFAULT_MODEL, max_token
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"Claude API error {e.code}: {e.read().decode(errors='replace')[:500]}")
     return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+
+
+# ---------------------------------------------------------------- Claude Code (uses your Claude plan)
+
+CLI_PATHS = ["~/.claude/local/claude", "~/.local/bin/claude", "/opt/homebrew/bin/claude",
+             "/usr/local/bin/claude", "~/.npm-global/bin/claude"]
+
+
+def find_cli() -> str:
+    found = shutil.which("claude")
+    if found:
+        return found
+    for p in CLI_PATHS:
+        p = os.path.expanduser(p)
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return p
+    # nvm installs live under ~/.nvm/versions/node/*/bin
+    nvm = os.path.expanduser("~/.nvm/versions/node")
+    if os.path.isdir(nvm):
+        for v in sorted(os.listdir(nvm), reverse=True):
+            p = os.path.join(nvm, v, "bin", "claude")
+            if os.access(p, os.X_OK):
+                return p
+    return ""
+
+
+def call_claude_cli(prompt: str, model: str = "") -> str:
+    """Run Claude Code headless. Billed to your Claude subscription, not the API."""
+    exe = find_cli()
+    if not exe:
+        raise RuntimeError("Claude Code isn't installed (no `claude` command found). Install it, "
+                           "run `claude` once to log in with your Claude account, then try again.")
+    env = dict(os.environ)
+    # If an API key is in the environment, Claude Code would bill the API instead of your plan.
+    env.pop("ANTHROPIC_API_KEY", None)
+    cmd = [exe, "-p", "--output-format", "json"]
+    if model:
+        cmd += ["--model", model]
+    r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, env=env, timeout=900,
+                       cwd=os.path.dirname(os.path.abspath(__file__)))
+    if r.returncode != 0:
+        raise RuntimeError(f"Claude Code failed: {(r.stderr or r.stdout).strip()[:500]}")
+    out = r.stdout.strip()
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError:
+        return out
+    if data.get("is_error"):
+        raise RuntimeError(f"Claude Code error: {str(data.get('result'))[:500]}")
+    return data.get("result", "")
+
+
+def ask_claude(prompt: str, params: dict) -> str:
+    backend = params.get("backend") or "plan"
+    if backend == "api":
+        key = get_api_key(params)
+        if not key:
+            raise RuntimeError("No Anthropic API key. Paste one in Settings, put ANTHROPIC_API_KEY=... in .env, "
+                               "or switch the backend to 'My Claude plan'.")
+        return call_claude(prompt, key, params.get("model") or DEFAULT_MODEL)
+    return call_claude_cli(prompt, params.get("cli_model") or "sonnet")
 
 
 def parse_json(text: str) -> dict:
@@ -178,15 +242,14 @@ def price_list(plan: dict, prices: dict, promos: dict) -> dict:
     return {"lines": lines, "total": round(total, 2), "saved": round(saved, 2), "unknown_codes": unknown}
 
 
-def make_plan(params: dict, prices: dict, promos: dict, api_key: str, log=print) -> dict:
+def make_plan(params: dict, prices: dict, promos: dict, log=print) -> dict:
     budget = float(params["budget"])
     cat = build_candidates(prices, promos)
     lines = [l for _, l in cat]
-    model = params.get("model") or DEFAULT_MODEL
     feedback, plan, priced = "", None, None
     for attempt in range(3):
         log(f"Asking Claude (attempt {attempt + 1}, {len(lines)} products)…")
-        plan = parse_json(call_claude(build_prompt(params, lines, feedback), api_key, model))
+        plan = parse_json(ask_claude(build_prompt(params, lines, feedback), params))
         priced = price_list(plan, prices, promos)
         over = priced["total"] - budget
         if over <= 0 and not priced["unknown_codes"]:

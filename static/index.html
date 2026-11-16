@@ -51,7 +51,7 @@
 </style>
 </head>
 <body>
-<header><h1>🛒 Shufersal Weekly Planner</h1><span id="ver">v1.0</span></header>
+<header><h1>🛒 Shufersal Weekly Planner</h1><span id="ver">v1.1</span></header>
 <main>
 <form id="f">
   <div class="card">
@@ -114,11 +114,23 @@
       <summary>Settings</summary>
       <label for="language">Plan language</label>
       <select id="language"><option>English</option><option>Hebrew</option></select>
-      <label for="model">Claude model</label>
-      <input type="text" id="model" placeholder="claude-sonnet-5-5">
-      <label for="api_key">Anthropic API key</label>
-      <input type="password" id="api_key" placeholder="Leave blank to use .env">
-      <div class="hint" id="keyHint"></div>
+      <label for="backend">Run Claude through</label>
+      <select id="backend">
+        <option value="plan">My Claude plan (Claude Code, no extra cost)</option>
+        <option value="api">Anthropic API key (pay per use)</option>
+      </select>
+      <div class="hint" id="cliHint"></div>
+      <div id="planBox">
+        <label for="cli_model">Model</label>
+        <select id="cli_model"><option value="sonnet">Sonnet (faster, lighter on limits)</option><option value="opus">Opus</option></select>
+      </div>
+      <div id="apiBox" style="display:none">
+        <label for="model">API model</label>
+        <input type="text" id="model" placeholder="claude-sonnet-5-5">
+        <label for="api_key">Anthropic API key</label>
+        <input type="password" id="api_key" placeholder="Leave blank to use .env">
+        <div class="hint" id="keyHint"></div>
+      </div>
       <label class="inline"><input type="checkbox" id="refresh"> Re-download prices now (ignore 6-hour cache)</label>
     </details>
     <button class="go" id="go" type="submit">Plan my week</button>
@@ -131,7 +143,7 @@ It pulls today's prices and deals for your branch, then builds the meal plan and
 
 <script>
 const $ = id => document.getElementById(id);
-const FIELDS = ["adults","kids","days","kid_ages","budget","diet","avoid","must","pantry_have","notes","language","model","include_club","basic_pantry","store"];
+const FIELDS = ["adults","kids","days","kid_ages","budget","diet","avoid","must","pantry_have","notes","language","model","include_club","basic_pantry","store","backend","cli_model"];
 let STORES = [];
 
 function save() {
@@ -155,11 +167,13 @@ function fillStores(q, selected) {
 }
 
 async function init() {
-  const saved = restore();
+  const saved = restore(); syncBackend();
   fetch("/api/status").then(r => r.json()).then(s => {
     $("ver").textContent = "v" + s.version;
     $("keyHint").textContent = s.has_key ? "Key found in .env / environment ✓" : "No key in .env — paste one here.";
-    if (!s.has_key) $("adv").open = true;
+    $("cliHint").textContent = s.cli ? "Claude Code found ✓ — uses your subscription's usage limits."
+      : "Claude Code not found. Install it and run `claude` once to log in.";
+    if (!s.cli && $("backend").value === "plan") $("adv").open = true;
   });
   try {
     const r = await (await fetch("/api/stores")).json();
@@ -168,6 +182,9 @@ async function init() {
     $("storeHint").textContent = `${STORES.length} branches`;
   } catch (e) { $("storeHint").textContent = "Couldn't load branch list — using Agron, Jerusalem. " + e.message; }
 }
+function syncBackend() { const api = $("backend").value === "api";
+  $("apiBox").style.display = api ? "" : "none"; $("planBox").style.display = api ? "none" : ""; }
+$("backend").addEventListener("change", syncBackend);
 $("storeQ").addEventListener("input", e => fillStores(e.target.value.trim()));
 
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));

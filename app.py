@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import planner
 import shufersal
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 PORT = int(os.environ.get("PORT", "8765"))
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -41,6 +41,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(502, {"error": f"Couldn't load the branch list: {e}"})
         if self.path == "/api/status":
             return self._send(200, {"version": VERSION, "has_key": bool(planner.get_api_key({})),
+                                    "cli": planner.find_cli(),
                                     "model": planner.DEFAULT_MODEL})
         self._send(404, {"error": "not found"})
 
@@ -49,16 +50,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, {"error": "not found"})
         try:
             params = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
-            key = planner.get_api_key(params)
-            if not key:
-                return self._send(400, {"error": "No Anthropic API key. Paste one in the box, or put "
-                                                 "ANTHROPIC_API_KEY=... in a .env file next to app.py."})
             if float(params.get("budget") or 0) <= 0:
                 return self._send(400, {"error": "Set a budget above ₪0."})
             store = int(params.get("store") or 2)
             prices, promos = shufersal.load_branch(store, include_club=bool(params.get("include_club")),
                                                    force=bool(params.get("refresh")))
-            result = planner.make_plan(params, prices, promos, key)
+            result = planner.make_plan(params, prices, promos)
             result["store"] = store
             self._send(200, result)
         except Exception as e:

@@ -72,16 +72,37 @@ class Core(unittest.TestCase):
             '{"summary":"a","shopping_list":[{"code":"111","qty":8},{"code":"222","qty":3},{"code":"999","qty":1}],"meal_plan":[]}',
             '```json\n{"summary":"b","shopping_list":[{"code":"111","qty":4},{"code":"222","qty":1}],"meal_plan":[]}\n```',
         ])
-        orig = planner.call_claude
-        planner.call_claude = lambda *a, **k: next(replies)
+        orig = planner.ask_claude
+        planner.ask_claude = lambda *a, **k: next(replies)
         try:
-            r = planner.make_plan({"budget": 25}, self.prices, self.promos, "k", log=lambda *_: None)
+            r = planner.make_plan({"budget": 25}, self.prices, self.promos, log=lambda *_: None)
         finally:
-            planner.call_claude = orig
+            planner.ask_claude = orig
         self.assertEqual(r["summary"], "b")
         self.assertEqual(r["shopping"]["total"], 18.9)    # 10 + 8.90
         self.assertTrue(r["within_budget"])
         self.assertEqual(r["shopping"]["saved"], 21.6)    # 31.60 - 10
+
+    def test_cli_backend(self):
+        import stat, tempfile
+        d = tempfile.mkdtemp()
+        fake = os.path.join(d, "claude")
+        with open(fake, "w") as f:
+            f.write('#!/bin/sh\n[ -n "$ANTHROPIC_API_KEY" ] && { echo "key leaked" >&2; exit 1; }\n'
+                    'cat >/dev/null; echo \'{"type":"result","is_error":false,"result":"{\\"ok\\": 1}"}\'\n')
+        os.chmod(fake, os.stat(fake).st_mode | stat.S_IEXEC)
+        old_path, old_key = os.environ.get("PATH", ""), os.environ.get("ANTHROPIC_API_KEY")
+        os.environ["PATH"] = d + os.pathsep + old_path
+        os.environ["ANTHROPIC_API_KEY"] = "sk-should-not-be-passed"
+        try:
+            out = planner.ask_claude("hello", {"backend": "plan"})
+        finally:
+            os.environ["PATH"] = old_path
+            if old_key is None:
+                os.environ.pop("ANTHROPIC_API_KEY")
+            else:
+                os.environ["ANTHROPIC_API_KEY"] = old_key
+        self.assertEqual(planner.parse_json(out), {"ok": 1})
 
     def test_stores(self):
         xml = ('<?xml version="1.0" encoding="UTF-8"?><Chain><SubChains><SubChain><SubChainName>שופרסל שלי</SubChainName>'
